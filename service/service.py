@@ -14,13 +14,10 @@ import codecs
 import struct
 import logging
 import signal
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(message)s', 
-    datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.basicConfig(level=logging.INFO)
 
 config = configparser.ConfigParser()
-config.read('settings.ini')
+config.read('/etc/ci-status-neopixel/settings.ini')
 
 bamboo_url = "%s/rest/api/latest/result.json?os_authType=basic" % config['bamboo']['url']
 credentials = "%s:%s" % (config['bamboo']['username'], config['bamboo']['password'])
@@ -50,11 +47,10 @@ def get_tty_device():
 
     raise Exception('Cant detect NeoPixel Controler')
 
-tty = get_tty_device()
-
-logging.info("Using serial: %s" %  tty)
-
 def open_controller():
+    tty = get_tty_device()
+    logging.info("Using serial: %s" %  tty)
+
     # Arduino restarts on this operation, so serial should be always opened
     logging.info("Trying to open a controller")
     return serial.Serial(
@@ -67,7 +63,7 @@ controller = open_controller()
 def set_mode(mode, speed, brightness):  
     logging.info("Command>%d %d %d;" % (mode, speed, brightness))
     controller.write(struct.pack("BBB", mode, speed, brightness))
-  
+
 def get_command_val(seconds, min_val, max_val, reach_max_val_minutes):
     reach_max_val_seconds = 60. * reach_max_val_minutes;		
     val = max_val * (seconds/reach_max_val_seconds)
@@ -95,7 +91,13 @@ def do_read_and_apply_status():
     logging.info("Reading CI status...")
 
     red_ci_since_file = Path(config['misc']['failed_since_file_path'])
-
+    
+    try:
+        is_ci_failed_now = is_ci_failed()
+    except Exception as e:
+        logging.error(e)
+        return
+    
     if is_ci_failed():        
         seconds_failed = 0;
         if red_ci_since_file.exists():
@@ -128,10 +130,6 @@ def do_read_and_apply_status():
 
 time.sleep(5) # giving an Arduino some to be ready to receive a command
 while True:
-    try:
-        do_read_and_apply_status()        
-    except Exception as e:
-        logging.error(e)
-    time.sleep(config['misc'].getint('poling_interval_seconds'))    
-             
+    do_read_and_apply_status()        
+    time.sleep(config['misc'].getint('poling_interval_seconds'))         
     

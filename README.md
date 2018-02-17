@@ -1,2 +1,2 @@
-# arduino_ci_status_indicator_neopixel
+# arduino-status-neopixel
 Bamboo CI status indicator based on Arduino and Neopixel
