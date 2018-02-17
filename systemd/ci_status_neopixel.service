@@ -1,0 +1,10 @@
+[Unit]
+Description=CI Status Neopixel Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/ci_status_neopixel/ci_status_neopixel_service/service.py
+
+[Install]
+WantedBy=multi-user.target
