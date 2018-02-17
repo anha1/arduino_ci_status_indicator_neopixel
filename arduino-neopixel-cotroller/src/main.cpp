@@ -18,12 +18,14 @@
 #define MODE_RED 3 //fail
 //unexpected mode: white
 
+#define SPEED_PARAM 12000
+
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
 SimpleTimer timer;
 long phase = 0;
 long speed = 15;
-int mode = 0;
+int mode = MODE_BLUE;
 int brightness = DEFAULT_BRIGHTNESS;
 unsigned long lastCommand = 0;
 unsigned long lastPhaseUpdate = 0;
@@ -36,13 +38,6 @@ boolean isData() {
     return Serial.available() > 0;
 }
 
-byte readWhenData() {
-    while(!isData()) {
-        delay(10);
-    }
-    return Serial.read();
-}
-
 void discardInput() {
     while (isData()) {        
         Serial.read();
@@ -50,30 +45,15 @@ void discardInput() {
     }
 }
 
-boolean isCommandAvailable() {
-    int bytes = Serial.available();
-    if (bytes <=0) {
-      //no data  
-      return false;
-    } else if(bytes != 3) {
-      //unexpected size - some garbage
-      discardInput();
-      return false;
-    }
-    return true;
-}
-
 void tryReadCommand() {
-    if (!isCommandAvailable) {
+    if (!isData()) {
         return;
     }
 
-    int newMode = readWhenData();       
-    int newSpeed = readWhenData();
-    int newBrightness = readWhenData();
-    Serial.println(newMode);
-    Serial.println(newSpeed);
-    Serial.println(newBrightness);
+    int newMode = fromCommandValue(Serial.parseInt());       
+    int newSpeed = fromCommandValue(Serial.parseInt()); 
+    int newBrightness = fromCommandValue(Serial.parseInt()); 
+
     discardInput();
 
     lastCommand = millis();
@@ -90,7 +70,7 @@ boolean isDetached() {
 boolean tryUpdatePhase() {
 
     int diff = millis() - lastPhaseUpdate;
-    if (diff > (4080 / (speed + 1))) {
+    if (diff > (SPEED_PARAM / (speed + 1))) {
         phase++;        
         if (phase % PIXELS_PER_RUNNER == 0) {
             phase = 0;
@@ -157,7 +137,6 @@ void setup() {
   discardInput();
   timer.setInterval(16, tryDraw);
   timer.setInterval(500, tryReadCommand);
-
 }
 
 void loop() {

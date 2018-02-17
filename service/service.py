@@ -11,7 +11,6 @@ import time
 import configparser
 import base64
 import codecs
-import struct
 import logging
 import signal
 logging.basicConfig(level=logging.INFO)
@@ -61,8 +60,9 @@ def open_controller():
 controller = open_controller() 
 
 def set_mode(mode, speed, brightness):  
-    logging.info("Command>%d %d %d;" % (mode, speed, brightness))
-    controller.write(struct.pack("BBB", mode, speed, brightness))
+    command = "%d %d %d;" % (mode, speed, brightness)
+    logging.info("Command: %s" % command)
+    controller.write(command.encode())
 
 def get_command_val(seconds, min_val, max_val, reach_max_val_minutes):
     reach_max_val_seconds = 60. * reach_max_val_minutes;		
