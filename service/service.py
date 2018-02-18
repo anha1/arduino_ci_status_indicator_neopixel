@@ -13,14 +13,18 @@ import base64
 import codecs
 import logging
 import signal
+import json
 logging.basicConfig(level=logging.INFO)
 
 config = configparser.ConfigParser()
 config.read('/etc/ci-status-neopixel/settings.ini')
 
 bamboo_url = "%s/rest/api/latest/result.json?os_authType=basic" % config['bamboo']['url']
-credentials = "%s:%s" % (config['bamboo']['username'], config['bamboo']['password'])
-bamboo_auth_header = "Basic %s" % ((base64.b64encode( bytes(credentials, "utf-8"))).decode('ascii'))
+bamboo_credentials = "%s:%s" % (config['bamboo']['username'], config['bamboo']['password'])
+bamboo_auth_header = "Basic %s" % ((base64.b64encode( bytes(bamboo_credentials, "utf-8"))).decode('ascii'))
+bamboo_blacklist_keys = json.loads(config['bamboo']['blacklist_keys'])
+
+logging.info("Blacklisted keys: %s", bamboo_blacklist_keys)
 
 def is_ci_failed() :
     request = urllib.request.Request(bamboo_url)    
@@ -34,9 +38,13 @@ def is_ci_failed() :
 
     for result in body['results']['result']:
         plan = result['plan']
-        if plan['enabled'] and result['buildState'] == 'Failed':
-            logging.info('Failed build: %s' % plan['name'] )
-            is_any_failed_builds = True
+        if plan['enabled'] and result['buildState'] == 'Failed':            
+            if plan['key'] in bamboo_blacklist_keys:
+                logging.debug('Failed blacklisted build: [%s] %s' % (plan['key'], plan['name']))
+            else:
+                logging.info('Failed build: [%s] %s' % (plan['key'], plan['name']))
+                is_any_failed_builds = True
+
     return is_any_failed_builds
 
 def get_tty_device():
