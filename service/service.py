@@ -133,7 +133,7 @@ def do_read_and_apply_status():
                 speed=1,
                 brightness=1)
         
-        if not red_ci_since_file.exists():
+        if red_ci_since_file.exists():
             red_ci_since_file.unlink()
 
 time.sleep(5) # giving an Arduino some to be ready to receive a command
