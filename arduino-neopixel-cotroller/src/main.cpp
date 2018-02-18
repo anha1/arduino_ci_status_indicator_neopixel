@@ -10,8 +10,7 @@
 #define RUNNER_PIXELS     3
 #define DETACHED_MILLIS 300000 // 5 minutes
 #define MAX_COLOR 255
-#define DEFAULT_BRIGHTNESS 1
-#define DEFAULT_SPEED 1
+
 
 #define MODE_BLUE 0 //detached (no commands for DETACHED_MILLIS)
 #define MODE_GREEN 1 //ok
@@ -19,21 +18,28 @@
 #define MODE_RED 3 //fail
 //unexpected mode: white
 
-#define SPEED_PARAM 12000
+#define ANIMATION_DELAY_MIN_MS 30
+#define ANIMATION_DELAY_MAX_MS 5000
+
+#define BRIGHTNESS_DEFAULT 1
+#define COMMAND_MIN 0
+#define COMMAND_MAX 255
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
 SimpleTimer timer;
-long phase = 0;
+int phase = 0;
 
 int mode = MODE_BLUE;
-long speed = DEFAULT_SPEED;
-int brightness = DEFAULT_BRIGHTNESS;
+
+int brightness = BRIGHTNESS_DEFAULT;
 unsigned long lastCommand = 0;
 unsigned long lastPhaseUpdate = 0;
 
+int targetAnimationDelayMs = ANIMATION_DELAY_MAX_MS;
+
 int fromCommandValue(int commandValue) {
-    return max(1, min(255, commandValue));
+    return max(COMMAND_MIN, min(COMMAND_MAX, commandValue));
 }
 
 boolean isData() {
@@ -44,6 +50,13 @@ void discardInput() {
     while (isData()) {        
         Serial.read();
     }
+}
+
+int getTargetAnimationDelayMs(int speed) {
+    long diffDelayMs = (ANIMATION_DELAY_MAX_MS - ANIMATION_DELAY_MIN_MS);
+    long diffCommand = (COMMAND_MAX - speed) ;    
+    long addMs = diffDelayMs * diffCommand / COMMAND_MAX;
+    return ANIMATION_DELAY_MIN_MS + addMs;
 }
 
 void tryReadCommand() {
@@ -59,7 +72,7 @@ void tryReadCommand() {
 
     lastCommand = millis();
     mode = fromCommandValue(newMode);
-    speed = fromCommandValue(newSpeed); 
+    targetAnimationDelayMs = getTargetAnimationDelayMs(newSpeed);
     brightness = fromCommandValue(newBrightness);
 }
 
@@ -69,9 +82,9 @@ boolean isDetached() {
 }
 
 boolean tryUpdatePhase() {
-
-    int diff = millis() - lastPhaseUpdate;
-    if (diff > (SPEED_PARAM / (speed + 1))) {
+    int animationDelayMs = millis() - lastPhaseUpdate;
+    
+    if (animationDelayMs >= targetAnimationDelayMs) {
         phase++;        
         if (phase % PIXELS_PER_RUNNER == 0) {
             phase = 0;
@@ -93,8 +106,8 @@ void tryDraw() {
   
   if (isDetachedNow) { 
     mode = MODE_BLUE;
-    speed = DEFAULT_SPEED;
-    brightness = DEFAULT_BRIGHTNESS;
+    targetAnimationDelayMs = ANIMATION_DELAY_MAX_MS;
+    brightness = BRIGHTNESS_DEFAULT;
   }  
 
   pixels.setBrightness(brightness);
@@ -135,8 +148,8 @@ void tryDraw() {
 void setup() {
   Serial.begin(9600);  
   pixels.begin();
-  timer.setInterval(16, tryDraw);
-  timer.setInterval(500, tryReadCommand);
+  timer.setInterval(1, tryDraw);
+  timer.setInterval(100, tryReadCommand);
 }
 
 void loop() {
