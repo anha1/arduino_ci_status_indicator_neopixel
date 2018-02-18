@@ -72,25 +72,25 @@ def set_mode(mode, speed, brightness):
     logging.info("Command: %s" % command)
     controller.write(command.encode())
 
-def get_command_val(seconds, min_val, max_val, reach_max_val_minutes):
-    reach_max_val_seconds = 60. * reach_max_val_minutes;		
+def get_command_val(seconds, min_val, max_val, reach_max_val_hours):
+    reach_max_val_seconds = 3600. * reach_max_val_hours;		
     val = max_val * (seconds/reach_max_val_seconds)
     return max(min_val, min(max_val, int(val))) 
 
 def is_warn(failed_seconds):
-    return failed_seconds < (config['warn'].getint('warn_before_fail_minutes') * 60)
+    return failed_seconds < (config['warn'].getint('warn_before_fail_hours') * 3600)
 
 def get_fail_speed(failed_seconds):
     return get_command_val(seconds=failed_seconds, 
                    min_val=config['fail'].getint('min_speed'), 
                    max_val=config['fail'].getint('max_speed'), 
-                   reach_max_val_minutes=config['fail'].getint('max_speed_reached_in_minutes'))
+                   reach_max_val_hours=config['fail'].getint('max_speed_reached_hours'))
 
 def get_fail_brightness(failed_seconds):
     return get_command_val(seconds=failed_seconds, 
                 min_val=config['fail'].getint('min_brightness'), 
                 max_val=config['fail'].getint('max_brightness'), 
-                reach_max_val_minutes=config['fail'].getint('max_brightness_reached_in_minutes'))
+                reach_max_val_hours=config['fail'].getint('max_brightness_reached_hours'))
 
 def do_read_and_apply_status():
     

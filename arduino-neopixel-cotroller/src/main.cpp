@@ -10,7 +10,8 @@
 #define RUNNER_PIXELS     3
 #define DETACHED_MILLIS 300000 // 5 minutes
 #define MAX_COLOR 255
-#define DEFAULT_BRIGHTNESS 5
+#define DEFAULT_BRIGHTNESS 1
+#define DEFAULT_SPEED 1
 
 #define MODE_BLUE 0 //detached (no commands for DETACHED_MILLIS)
 #define MODE_GREEN 1 //ok
@@ -24,8 +25,9 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(PIXELS, PIN, NEO_GRB + NEO_KHZ800);
 
 SimpleTimer timer;
 long phase = 0;
-long speed = 15;
+
 int mode = MODE_BLUE;
+long speed = DEFAULT_SPEED;
 int brightness = DEFAULT_BRIGHTNESS;
 unsigned long lastCommand = 0;
 unsigned long lastPhaseUpdate = 0;
@@ -41,7 +43,6 @@ boolean isData() {
 void discardInput() {
     while (isData()) {        
         Serial.read();
-        delay(1);
     }
 }
 
@@ -90,9 +91,10 @@ void tryDraw() {
   
   boolean isDetachedNow = isDetached();
   
-  if (isDetachedNow) {
-    brightness = DEFAULT_BRIGHTNESS;
+  if (isDetachedNow) { 
     mode = MODE_BLUE;
+    speed = DEFAULT_SPEED;
+    brightness = DEFAULT_BRIGHTNESS;
   }  
 
   pixels.setBrightness(brightness);
@@ -133,8 +135,6 @@ void tryDraw() {
 void setup() {
   Serial.begin(9600);  
   pixels.begin();
-
-  discardInput();
   timer.setInterval(16, tryDraw);
   timer.setInterval(500, tryReadCommand);
 }
