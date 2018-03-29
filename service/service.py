@@ -30,15 +30,17 @@ config.read('/etc/ci-status-neopixel/settings.ini')
 
 failed_projects_global = []
 
-if config['http']['enabled']:
+if config['http']['enabled'] == 'True':
     port = int(config['http']['port'])
-    template = ""
-    with open('template.html', 'r') as template_file:
-        template = template_file.read()
 
     class GetHandler(BaseHTTPRequestHandler):
 
         def do_GET(self):
+
+            template = ""
+            with open(config['http']['template'], 'r') as template_file:
+                template = template_file.read()
+
             message = pystache.render(template, {
                 'projects': failed_projects_global
             })
@@ -61,9 +63,10 @@ bamboo_credentials = "%s:%s" % (
 bamboo_auth_header = "Basic %s" % (
     (base64.b64encode(bytes(bamboo_credentials, "utf-8"))).decode('ascii'))
 bamboo_blacklist_keys = json.loads(config['bamboo']['blacklist_keys'])
+bamboo_highlight_keys = json.loads(config['bamboo']['highlight_keys'])
 
 logging.info("Blacklisted keys: %s", bamboo_blacklist_keys)
-
+logging.info("Highlighted keys: %s", bamboo_highlight_keys)
 
 def get_ci_failed():
     request = urllib.request.Request(bamboo_url)
@@ -105,13 +108,16 @@ def open_controller():
         baudrate=config['indicator'].getint('baudrate'),
         timeout=config['indicator'].getint('write_timeout_seconds'))
 
-
-controller = open_controller()
+if config['indicator']['enabled'] == 'True':
+    controller = open_controller()
+else:
+    controller = None    
 
 def set_mode(mode, speed, brightness):
     command = "%d %d %d;" % (mode, speed, brightness)
     logging.info("Command: %s" % command)
-    controller.write(command.encode())
+    if controller:
+        controller.write(command.encode())
 
 
 def get_command_val(seconds, min_val, max_val, reach_max_val_hours):
@@ -172,6 +178,7 @@ def get_failed_projects():
                 'failed_seconds': int(curr_red_for),
                 'failed_description': seconds_to_description(int(curr_red_for)),
                 'key': key,
+                'highlight': key in bamboo_highlight_keys,
                 'name': ci_failed[key]
             })
 
@@ -181,8 +188,7 @@ def get_failed_projects():
         if red_ci_since_file.exists():
             red_ci_since_file.unlink()
 
-    return sorted(failed_projectes, key=lambda item: item['failed_seconds'], reverse=True)
-
+    return sorted(failed_projectes, key=lambda item: (item['highlight'], item['failed_seconds']), reverse=True)
 
 def seconds_to_hours(seconds):
     return (float(seconds) / 3600.)
@@ -192,9 +198,9 @@ def seconds_to_description(seconds):
     hours = math.floor(seconds / 3600.)
     minutes = math.floor((seconds - 3600 * hours) / 60)
     if hours > 0:
-        return "%s hours %s minutes" % (hours, minutes)
+        return "%s h %s m" % (hours, minutes)
     else:
-        return "%s minutes" % (minutes)
+        return "%s m" % (minutes)
 
 
 def apply_failed_projects_to_indicator(failed_projects):
@@ -229,8 +235,6 @@ time.sleep(5)  # giving an Arduino some to be ready to receive a command
 
 while True:
     failed_projects = get_failed_projects()
-
-    print(json.dumps(failed_projects))
 
     failed_projects_global = failed_projects
 
