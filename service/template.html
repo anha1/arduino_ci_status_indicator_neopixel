@@ -34,11 +34,17 @@
 
     .failed {
         background-color: #770112;
+        border-left: 35px solid #e53030;
     }
 
     .failed.highlight-True {
         color: #00edff;
         background-color: #8500ba;
+    }
+
+    .failed.blacklist-True {
+        color: #d1d1d1;
+        background-color: #4f4f4f;
     }
 
     .hours {
@@ -59,7 +65,7 @@
 <body>
     <ul>
         {{#projects}}
-        <li class="failed highlight-{{highlight}}">
+        <li class="failed highlight-{{highlight}} blacklist-{{blacklist}}">
             <div class="project-name">{{name}}</div> 
             <div class="hours">{{failed_description}}</div>
             <div class="clear"></div>

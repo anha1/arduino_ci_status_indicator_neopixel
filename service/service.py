@@ -80,10 +80,6 @@ def get_ci_failed():
     for entry in body['results']['result']:
         plan = entry['plan']
         if plan['enabled'] and entry['buildState'] == 'Failed':
-            if plan['key'] in bamboo_blacklist_keys:
-                logging.debug('Failed blacklisted build: [%s] %s' % (
-                    plan['key'], plan['name']))
-            else:
                 logging.info('Failed build: [%s] %s' %
                              (plan['key'], plan['name']))
                 failed[plan['key']] = plan['name']
@@ -179,6 +175,7 @@ def get_failed_projects():
                 'failed_description': seconds_to_description(int(curr_red_for)),
                 'key': key,
                 'highlight': key in bamboo_highlight_keys,
+                'blacklist': key in bamboo_blacklist_keys,
                 'name': ci_failed[key]
             })
 
@@ -188,7 +185,7 @@ def get_failed_projects():
         if red_ci_since_file.exists():
             red_ci_since_file.unlink()
 
-    return sorted(failed_projectes, key=lambda item: (item['highlight'], item['failed_seconds']), reverse=True)
+    return sorted(failed_projectes, key=lambda item: (-item['blacklist'], item['highlight'], item['failed_seconds']), reverse=True)
 
 def seconds_to_hours(seconds):
     return (float(seconds) / 3600.)
@@ -208,7 +205,7 @@ def apply_failed_projects_to_indicator(failed_projects):
     max_failed_seconds = 0
 
     for failed_project in failed_projects:
-        if failed_project['failed_seconds'] > max_failed_seconds:
+        if failed_project['failed_seconds'] > max_failed_seconds and not failed_project['blacklist']:
             max_failed_seconds = failed_project['failed_seconds']
 
     logging.info('Failing for: %f h' % seconds_to_hours(max_failed_seconds))
