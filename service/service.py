@@ -51,6 +51,7 @@ if config['http']['enabled'] == 'True':
             self.end_headers()
             self.wfile.write(message.encode('utf-8'))
 
+    socketserver.TCPServer.allow_reuse_address = True
     server = socketserver.TCPServer(("", port), GetHandler)
     logging.info("serving at port %d" % port)
     thread = threading.Thread(target=server.serve_forever)
