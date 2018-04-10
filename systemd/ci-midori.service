@@ -1,0 +1,13 @@
+[Unit]
+Description=CI Midori
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/ci-status-neopixel/midori/ci-midori.sh
+Restart=always
+RestartSec=30
+User=pi
+
+[Install]
+WantedBy=multi-user.target
