@@ -28,11 +28,10 @@ logging.basicConfig(level=logging.INFO)
 config = configparser.ConfigParser()
 config.read('/etc/ci-status-neopixel/settings.ini')
 
-failed_projects_global = []
+detailed_status_global = []
 
 if config['http']['enabled'] == 'True':
     port = int(config['http']['port'])
-
     class GetHandler(BaseHTTPRequestHandler):
 
         def do_GET(self):
@@ -42,7 +41,7 @@ if config['http']['enabled'] == 'True':
                 template = template_file.read()
 
             message = pystache.render(template, {
-                'projects': failed_projects_global
+                'detailed_status': detailed_status_global
             })
 
             self.send_response(200)
@@ -141,7 +140,7 @@ def get_fail_brightness(failed_seconds):
                            reach_max_val_hours=config['fail'].getint('max_brightness_reached_hours'))
 
 
-def get_failed_projects():
+def get_detailed_status():
     now = round(time.time())
 
     logging.info("Reading CI status...")
@@ -154,15 +153,29 @@ def get_failed_projects():
         logging.error(e)
         return
 
-    failed_projectes = []
+    detailed_status = {
+        "status_known": True,
+        "red_projects": []
+    }
 
     if ci_failed:
+        status_old = {}
         red_since_old = {}
         if red_ci_since_file.exists():
             with red_ci_since_file.open() as f:
-                red_since_old = json.loads(f.readline())
+                status_old = json.loads(f.readline())
+        if not status_old:
+            status_old = {
+                "red_since": {},
+                "green_since": now
+            }
+                
+        red_since_old = status_old["red_since"]        
 
         red_since_new = {}
+
+        is_any_non_blacklisted_red = False
+        
         for key in ci_failed:
             if key in red_since_old:
                 red_since_new[key] = red_since_old[key]
@@ -171,7 +184,10 @@ def get_failed_projects():
                 red_since_new[key] = now
                 curr_red_for = 1
 
-            failed_projectes.append({
+            if not key in bamboo_blacklist_keys:
+                is_any_non_blacklisted_red = True
+            
+            detailed_status["red_projects"].append({
                 'failed_seconds': int(curr_red_for),
                 'failed_description': seconds_to_description(int(curr_red_for)),
                 'key': key,
@@ -180,13 +196,29 @@ def get_failed_projects():
                 'name': ci_failed[key]
             })
 
+        
+        status_new = {
+            "red_since": red_since_new,
+            "green_since": now
+        }
+
+        if not is_any_non_blacklisted_red:
+            status_new["green_since"] = status_old["green_since"]
+            
+            green_for = now - int(status_new["green_since"])
+            detailed_status["green_for"] = {
+                'seconds': green_for,
+                'description': seconds_to_description(green_for),
+            }
+        
         with red_ci_since_file.open(mode='w') as f:
-            f.write(json.dumps(red_since_new))
+            f.write(json.dumps(status_new))
     else:
         if red_ci_since_file.exists():
             red_ci_since_file.unlink()
 
-    return sorted(failed_projectes, key=lambda item: (-item['blacklist'], item['highlight'], item['failed_seconds']), reverse=True)
+    detailed_status["red_projects"] = sorted(detailed_status["red_projects"], key=lambda item: (-item['blacklist'], item['highlight'], item['failed_seconds']), reverse=True)
+    return detailed_status
 
 def seconds_to_hours(seconds):
     return (float(seconds) / 3600.)
@@ -232,9 +264,13 @@ def apply_failed_projects_to_indicator(failed_projects):
 time.sleep(5)  # giving an Arduino some to be ready to receive a command
 
 while True:
-    failed_projects = get_failed_projects()
+    detailed_status = get_detailed_status()
+    
+    if not detailed_status:
+        logging.info('Can\'t read detailed status')
+        continue
 
-    failed_projects_global = failed_projects
-
-    apply_failed_projects_to_indicator(failed_projects)
+    detailed_status_global = detailed_status
+   
+    apply_failed_projects_to_indicator(detailed_status['red_projects'])
     time.sleep(config['misc'].getint('poling_interval_seconds'))

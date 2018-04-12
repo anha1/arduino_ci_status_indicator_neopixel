@@ -17,6 +17,7 @@
     }
 
     .project-name {
+	width: 80%;    
         font-weight: bold;
         float:left;
     }
@@ -35,13 +36,12 @@
 
     .failed {
         background-color: #770112;
-        border-left: 15px solid #e53030;
-	padding-left: 7px;
+        padding-left: 7px;
     }
 
     .failed.highlight-True {
         background-color: #ff0000;
-	color: #000000;
+        color: #000000;
     }
 
     .failed.blacklist-True {
@@ -50,10 +50,12 @@
     }
 
     .hours {
+	width: 20%;    
         font-size: 90%;
         color: #fff600;
         float: right;
         font-weight: bold;
+        text-align: right;		
     }
 
     .highlight-True .hours {
@@ -70,22 +72,30 @@
 </head>
 
 <body>
-    <ul>
-        {{#projects}}
+    <ul>        
+        {{^detailed_status.status_known}}  
+        <li class="failed blacklist-True">
+            <div class="project-name">Status unknown</div>
+            <div class="clear"></div>
+        </li>   
+        {{/detailed_status.status_known}}   
+
+        {{#detailed_status.green_for}}
+        <li class="ok">
+            <div class="project-name">Builds are green!</div>
+            <div class="hours">{{description}}</div>
+            <div class="clear"></div>
+        </li>   
+        {{/detailed_status.green_for}} 
+
+        {{#detailed_status.red_projects}}
         <li class="failed highlight-{{highlight}} blacklist-{{blacklist}}">
             <div class="project-name">{{name}}</div> 
             <div class="hours">{{failed_description}}</div>
             <div class="clear"></div>
         </li>
-        {{/projects}}
+        {{/detailed_status.red_projects}}
 
-        {{^projects}}
-        <li class="ok">
-            <div class="project-name">All builds are green!</div>
-            <div class="clear"></div>
-        </li>
-        {{/projects}}
-        
     </ul>
 </body>
 </html>
