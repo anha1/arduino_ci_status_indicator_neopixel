@@ -23,7 +23,7 @@ import threading
 import pystache
 import math
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 
 config = configparser.ConfigParser()
 config.read('/etc/ci-status-neopixel/settings.ini')
@@ -39,6 +39,7 @@ if config['http']['enabled'] == 'True':
             template = ""
             with open(config['http']['template'], 'r') as template_file:
                 template = template_file.read()
+                template_file.close()
 
             message = pystache.render(template, {
                 'detailed_status': detailed_status_global
@@ -80,7 +81,7 @@ def get_ci_failed():
     for entry in body['results']['result']:
         plan = entry['plan']
         if plan['enabled'] and entry['buildState'] == 'Failed':
-                logging.info('Failed build: [%s] %s' %
+                logging.debug('Failed build: [%s] %s' %
                              (plan['key'], plan['name']))
                 failed[plan['key']] = plan['name']
 
@@ -111,7 +112,7 @@ else:
 
 def set_mode(mode, speed, brightness):
     command = "%d %d %d;" % (mode, speed, brightness)
-    logging.info("Command: %s" % command)
+    logging.debug("Command: %s" % command)
     if controller:
         controller.write(command.encode())
 
@@ -143,7 +144,7 @@ def get_fail_brightness(failed_seconds):
 def get_detailed_status():
     now = round(time.time())
 
-    logging.info("Reading CI status...")
+    logging.debug("Reading CI status...")
 
     red_ci_since_file = Path(config['misc']['failed_since_file_path'])
 
@@ -158,64 +159,62 @@ def get_detailed_status():
         "red_projects": []
     }
 
-    if ci_failed:
-        status_old = {}
-        red_since_old = {}
-        if red_ci_since_file.exists():
-            with red_ci_since_file.open() as f:
-                status_old = json.loads(f.readline())
-        if not status_old:
-            status_old = {
-                "red_since": {},
-                "green_since": now
-            }
-                
-        red_since_old = status_old["red_since"]        
-
-        red_since_new = {}
-
-        is_any_non_blacklisted_red = False
-        
-        for key in ci_failed:
-            if key in red_since_old:
-                red_since_new[key] = red_since_old[key]
-                curr_red_for = now - red_since_old[key]
-            else:
-                red_since_new[key] = now
-                curr_red_for = 1
-
-            if not key in bamboo_blacklist_keys:
-                is_any_non_blacklisted_red = True
-            
-            detailed_status["red_projects"].append({
-                'failed_seconds': int(curr_red_for),
-                'failed_description': seconds_to_description(int(curr_red_for)),
-                'key': key,
-                'highlight': key in bamboo_highlight_keys,
-                'blacklist': key in bamboo_blacklist_keys,
-                'name': ci_failed[key]
-            })
-
-        
-        status_new = {
-            "red_since": red_since_new,
+    status_old = {}
+    red_since_old = {}
+    if red_ci_since_file.exists():
+        with red_ci_since_file.open() as f:
+            status_old = json.loads(f.readline())
+            f.close()
+    if not status_old:
+        status_old = {
+            "red_since": {},
             "green_since": now
         }
-
-        if not is_any_non_blacklisted_red:
-            status_new["green_since"] = status_old["green_since"]
             
-            green_for = now - int(status_new["green_since"])
-            detailed_status["green_for"] = {
-                'seconds': green_for,
-                'description': seconds_to_description(green_for),
-            }
+    red_since_old = status_old["red_since"]        
+
+    red_since_new = {}
+
+    is_any_non_blacklisted_red = False
+    
+    for key in ci_failed:
+        if key in red_since_old:
+            red_since_new[key] = red_since_old[key]
+            curr_red_for = now - red_since_old[key]
+        else:
+            red_since_new[key] = now
+            curr_red_for = 1
+
+        if not key in bamboo_blacklist_keys:
+            is_any_non_blacklisted_red = True
         
-        with red_ci_since_file.open(mode='w') as f:
-            f.write(json.dumps(status_new))
-    else:
-        if red_ci_since_file.exists():
-            red_ci_since_file.unlink()
+        detailed_status["red_projects"].append({
+            'failed_seconds': int(curr_red_for),
+            'failed_description': seconds_to_description(int(curr_red_for)),
+            'key': key,
+            'highlight': key in bamboo_highlight_keys,
+            'blacklist': key in bamboo_blacklist_keys,
+            'name': ci_failed[key]
+        })
+
+    
+    status_new = {
+        "red_since": red_since_new,
+        "green_since": now
+    }
+
+    if not is_any_non_blacklisted_red:
+        status_new["green_since"] = status_old["green_since"]
+        
+        green_for = now - int(status_new["green_since"])
+        detailed_status["green_for"] = {
+            'seconds': green_for,
+            'description': seconds_to_description(green_for),
+        }
+    
+    with red_ci_since_file.open(mode='w') as f:
+        f.write(json.dumps(status_new))
+        f.close()
 
     detailed_status["red_projects"] = sorted(detailed_status["red_projects"], key=lambda item: (-item['blacklist'], item['highlight'], item['failed_seconds']), reverse=True)
     return detailed_status
@@ -241,21 +240,21 @@ def apply_failed_projects_to_indicator(failed_projects):
         if failed_project['failed_seconds'] > max_failed_seconds and not failed_project['blacklist']:
             max_failed_seconds = failed_project['failed_seconds']
 
-    logging.info('Failing for: %f h' % seconds_to_hours(max_failed_seconds))
+    logging.debug('Failing for: %f h' % seconds_to_hours(max_failed_seconds))
 
     if max_failed_seconds > 0:
         if is_warn(max_failed_seconds):
             set_mode(mode=2,
                      speed=get_fail_speed(max_failed_seconds),
                      brightness=1)
-            logging.info('Final status: WARN')
+            logging.debug('Final status: WARN')
         else:
             set_mode(mode=3,
                      speed=get_fail_speed(max_failed_seconds),
                      brightness=get_fail_brightness(max_failed_seconds))
-            logging.info('Final status: FAIL')
+            logging.debug('Final status: FAIL')
     else:
-        logging.info('Final status: OK')
+        logging.debug('Final status: OK')
         set_mode(mode=1,
                  speed=1,
                  brightness=1)
@@ -263,14 +262,19 @@ def apply_failed_projects_to_indicator(failed_projects):
 
 time.sleep(5)  # giving an Arduino some to be ready to receive a command
 
+fail_count = 0
+
 while True:
     detailed_status = get_detailed_status()
     
-    if not detailed_status:
+    if detailed_status:
+        fail_count = 0
+        detailed_status_global = detailed_status   
+        apply_failed_projects_to_indicator(detailed_status['red_projects'])   
+    else:   
         logging.info('Can\'t read detailed status')
-        continue
+        fail_count = fail_count + 1
+        if fail_count > 10:
+            detailed_status_global = []
 
-    detailed_status_global = detailed_status
-   
-    apply_failed_projects_to_indicator(detailed_status['red_projects'])
     time.sleep(config['misc'].getint('poling_interval_seconds'))
