@@ -73,28 +73,28 @@
 
 <body>
     <ul>        
-        {{^detailed_status.status_known}}  
+        {{^status.status_known}}  
         <li class="failed blacklist-True">
             <div class="project-name">Status unknown</div>
             <div class="clear"></div>
         </li>   
-        {{/detailed_status.status_known}}   
+        {{/status.status_known}}   
 
-        {{#detailed_status.green_for}}
+        {{#status.green_for}}
         <li class="ok">
             <div class="project-name">Builds are green!</div>
             <div class="hours">{{description}}</div>
             <div class="clear"></div>
         </li>   
-        {{/detailed_status.green_for}} 
+        {{/status.green_for}} 
 
-        {{#detailed_status.red_projects}}
+        {{#status.red_projects}}
         <li class="failed highlight-{{highlight}} blacklist-{{blacklist}}">
             <div class="project-name">{{name}}</div> 
-            <div class="hours">{{failed_description}}</div>
+            <div class="hours">{{red_for.description}}</div>
             <div class="clear"></div>
         </li>
-        {{/detailed_status.red_projects}}
+        {{/status.red_projects}}
 
     </ul>
 </body>
