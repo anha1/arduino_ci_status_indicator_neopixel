@@ -39,7 +39,7 @@ while True:
         if 'red_for' in status:
             controller.set_seconds_failed(status['red_for']['seconds'])   
         else:
-            controller.set_seconds_failed(0)      
+            controller.set_seconds_failed(-status['green_for']['seconds'])      
     else:   
         logging.info('Can\'t read detailed status')
         fail_count = fail_count + 1

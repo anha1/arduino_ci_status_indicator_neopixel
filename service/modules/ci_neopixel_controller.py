@@ -43,8 +43,8 @@ class CiNeopixelController:
         return failed_seconds < (self.config['warn'].getint('warn_before_fail_hours') * 3600)
 
 
-    def get_fail_speed(self, failed_seconds):
-        return self.get_command_val(seconds=failed_seconds,
+    def get_speed(self, seconds):
+        return self.get_command_val(seconds=seconds,
                             min_val=self.config['fail'].getint('min_speed'),
                             max_val=self.config['fail'].getint('max_speed'),
                             reach_max_val_hours=self.config['fail'].getint('max_speed_reached_hours'))
@@ -57,21 +57,22 @@ class CiNeopixelController:
                             reach_max_val_hours=self.config['fail'].getint('max_brightness_reached_hours'))
 
     def set_seconds_failed(self, max_failed_seconds):
+        speed = self.get_speed(abs(max_failed_seconds))
         if max_failed_seconds > 0:
             if self.is_warn(max_failed_seconds):
                 self.set_mode(mode=2,
-                        speed=self.get_fail_speed(max_failed_seconds),
+                        speed=speed,
                         brightness=1)
                 logging.debug('Final status: WARN')
             else:
                 self.set_mode(mode=3,
-                        speed=self.get_fail_speed(max_failed_seconds),
+                        speed=speed,
                         brightness=self.get_fail_brightness(max_failed_seconds))
                 logging.debug('Final status: FAIL')
         else:
             logging.debug('Final status: OK')
             self.set_mode(mode=1,
-                    speed=1,
+                    speed=speed,
                     brightness=1)
 
     def set_disconnected(self):
